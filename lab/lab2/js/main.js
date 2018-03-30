@@ -49,7 +49,7 @@ Task 1: Use Mapbox's 'Search' API to 'geocode' information from your input
 
 The docs: https://www.mapbox.com/api-documentation/#geocoding
 (For this first task, the URL pattern you'll want to produce looks like this:
-`https://api.mapbox.com/geocoding/v5/mapbox.places/{geocode_this}.json?access_token={your_mapbox_token}`)
+`https://api.mapbox.com/geocoding/v5/mapbox.places/{university of pennsylvania}.json?access_token=pk.eyJ1Ijoic3VueXQ2NjYiLCJhIjoiY2pmNGNyaTEyMTNpZjMzcGRhaGJrZ2IwYiJ9.F1S4tC_5eF7coizcJ6oTjg`)
 
 You might note that this task is slightly underspecified: there are multiple different
 ways to transform text into an address. For the lab, the simplest form of geocoding
@@ -132,7 +132,7 @@ var goToOrigin = _.once(function(lat, lng) {
   map.flyTo([lat, lng], 14);
 });
 
-
+var Origin = {"lat": 0, "lng": 0};
 /* Given a lat and a long, we should create a marker, store it
  *  somewhere, and add it to the map
  */
@@ -149,6 +149,9 @@ $(document).ready(function() {
   if ("geolocation" in navigator) {
     navigator.geolocation.getCurrentPosition(function(position) {
       updatePosition(position.coords.latitude, position.coords.longitude, position.timestamp);
+      Origin.lng = position.coords.longitude;
+      Origin.lat = position.coords.latitude;
+      console.log(Origin);
     });
   } else {
     alert("Unable to access geolocation API!");
@@ -170,8 +173,57 @@ $(document).ready(function() {
   $("#calculate").click(function(e) {
     var dest = $('#dest').val();
     console.log(dest);
+    var url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + dest + '.json?access_token=pk.eyJ1Ijoic3VueXQ2NjYiLCJhIjoiY2pmNGNyaTEyMTNpZjMzcGRhaGJrZ2IwYiJ9.F1S4tC_5eF7coizcJ6oTjg';
+    $.getJSON(url).done(function(destination){
+      console.log(destination,'destination');
+      _.map(destination.features, function(point) {
+        var destinationMarker = L.circleMarker([point.geometry.coordinates[1],point.geometry.coordinates[0]], {color: "red"}).addTo(map);
+        var eachDestination = point.geometry.coordinates;
+        var lngTo = point.geometry.coordinates[0];
+        var latTo = point.geometry.coordinates[1];
+        console.log(eachDestination);
+        var routeurl = 'https://api.mapbox.com/directions/v5/mapbox/driving/' + Origin.lng + ',' + Origin.lat + ';' +lngTo + ',' + latTo + '?access_token=pk.eyJ1Ijoic3VueXQ2NjYiLCJhIjoiY2pmNGNyaTEyMTNpZjMzcGRhaGJrZ2IwYiJ9.F1S4tC_5eF7coizcJ6oTjg';
+        $.ajax({
+          method: 'GET',
+          url: routeurl,
+        }).done(function(data) {
+          var eachRoute = decode(data.routes[0].geometry); // Get the geometry of the request  and convert it from a Google string to coordinates
+
+          _.each(eachRoute,function(array){
+            var temp;
+            temp = array[0];
+            array[0] = array[1];
+            array[1] = temp;
+          });
+          console.log(eachRoute);
+          var line = turf.lineString(eachRoute);
+          console.log(line);
+          // Task 5 Display travel distance
+          var pt = turf.point([Origin.lat, Origin.lng]);
+          var lineDistance = turf.pointToLineDistance(pt, line, {units: 'miles'});
+          $('#distance').text(lineDistance.toLocaleString() + ' miles');
+
+          // Disply travel time
+          var travelTime = data.routes[0].legs[0].duration;
+          console.log(travelTime);
+          // var minutes = Math.floor(traveltime / 60);
+          $('#traveltime').text(travelTime.toLocaleString() + ' seconds');
+          /*
+          turl = 'https://api.mapbox.com/directions-matrix/v1/mapbox/driving/' + Origin.lng + ',' + Origin.lat + ';' +lngTo + ',' + latTo + '?sources=0;2&destinations=all&access_token=pk.eyJ1Ijoic3VueXQ2NjYiLCJhIjoiY2pmNGNyaTEyMTNpZjMzcGRhaGJrZ2IwYiJ9.F1S4tC_5eF7coizcJ6oTjg';
+          $.get(turl).done(function(t){
+            var travelTime = t.durations[0][1];
+            console.log(travelTime);
+          }
+          */
+          var myStyle = {
+            "color": "#ff7800",
+            "weight": 3,
+            "opacity": 0.65
+          };
+          L.geoJson(line, {style: myStyle}).addTo(map);
+        });
+      });
+    });
   });
 
 });
-
-
